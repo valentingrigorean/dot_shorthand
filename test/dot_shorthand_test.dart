@@ -680,6 +680,66 @@ final Color value = Color.red;
         "import 'take.dart';\n\npart 'piece.dart';\n",
       );
     });
+    test('a shown name the rewrite left unused is dropped', () async {
+      final fixture = await fixImports({
+        'tone.dart':
+            'enum Tone { light, dark }\n\nclass Other {}\n\n'
+            'void take(Tone tone) {}\n',
+        'first.dart':
+            "import 'tone.dart' show Tone, Other, take;\n\n"
+            'void call() => take(Tone.light);\nOther other = Other();\n',
+        'last.dart':
+            "import 'tone.dart' show take, Tone;\n\n"
+            'void call() => take(Tone.light);\n',
+        'lines.dart':
+            "import 'tone.dart'\n    show\n        take,\n        Tone;\n\n"
+            'void call() => take(Tone.light);\n',
+      });
+      expect(
+        fixture.read('first.dart'),
+        "import 'tone.dart' show Other, take;\n\n"
+        'void call() => take(.light);\nOther other = Other();\n',
+      );
+      expect(
+        fixture.read('last.dart'),
+        "import 'tone.dart' show take;\n\nvoid call() => take(.light);\n",
+      );
+      expect(
+        fixture.read('lines.dart'),
+        "import 'tone.dart'\n    show\n        take;\n\n"
+        'void call() => take(.light);\n',
+      );
+    });
+
+    test('a shown name that was already unused stays', () async {
+      final fixture = await fixImports({
+        'tone.dart':
+            'enum Tone { light, dark }\n\nclass Other {}\n\n'
+            'void take(Tone tone) {}\n',
+        'kept.dart':
+            "import 'tone.dart' show take, Tone, Other;\n\n"
+            'void call() => take(Tone.light);\n',
+      });
+      expect(
+        fixture.read('kept.dart'),
+        "import 'tone.dart' show take, Other;\n\n"
+        'void call() => take(.light);\n',
+      );
+    });
+
+    test('a show list left wholly unused loses the import', () async {
+      final fixture = await fixImports({
+        'tone.dart': 'enum Tone { light, dark }\n',
+        'take.dart': "import 'tone.dart';\n\nvoid take(Tone tone) {}\n",
+        'whole.dart':
+            "import 'take.dart';\nimport 'tone.dart' show Tone;\n\n"
+            'void call() => take(Tone.light);\n',
+      });
+      expect(
+        fixture.read('whole.dart'),
+        "import 'take.dart';\n\nvoid call() => take(.light);\n",
+      );
+    });
   });
 
   group('command line', () {

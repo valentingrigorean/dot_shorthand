@@ -1,3 +1,7 @@
+## 1.1.1
+
+- `--fix` drops a name from an import's `show` list when the rewrite left it unused, instead of leaving an `unused_shown_name` warning behind.
+
 ## 1.1.0
 
 - A static const on the context type that holds the same object is rewritten too: `padding: EdgeInsets.zero` becomes `padding: .zero` through `EdgeInsetsGeometry.zero`.

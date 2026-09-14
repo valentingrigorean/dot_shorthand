@@ -1,6 +1,6 @@
 name: dot_shorthand
 description: Migrate Dart code to dot shorthands (Color.red -> .red). CLI batch rewrite plus an analyzer plugin with a quick fix.
-version: 1.1.0
+version: 1.1.1
 repository: https://github.com/valentingrigorean/dot_shorthand
 issue_tracker: https://github.com/valentingrigorean/dot_shorthand/issues
 topics:

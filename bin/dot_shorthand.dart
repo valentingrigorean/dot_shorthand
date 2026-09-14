@@ -5,7 +5,7 @@ import 'package:args/args.dart';
 import 'package:dot_shorthand/dot_shorthand.dart';
 import 'package:path/path.dart' as p;
 
-const _version = '1.1.0';
+const _version = '1.1.1';
 
 const _synopsis =
     'dot_shorthand [--fix] [--exclude <glob>] [--format json] [<paths>...]';
@@ -21,7 +21,7 @@ Future<int> _run(List<String> arguments) async {
       negatable: false,
       help:
           'Rewrite every finding in place, rescan the changed files and drop '
-          'the imports the rewrite left unused.',
+          'the imports and shown names the rewrite left unused.',
     )
     ..addMultiOption(
       'exclude',
@@ -106,7 +106,8 @@ Future<int> _run(List<String> arguments) async {
         'findings': findings.map(_encode).toList(),
         'changedFiles': changed.map(_relative).toList(),
         'removedImports': [
-          for (final i in imports) {'path': _relative(i.path), 'uri': i.uri},
+          for (final i in imports)
+            {'path': _relative(i.path), 'uri': i.uri, 'name': i.name},
         ],
       }),
     );
@@ -115,9 +116,7 @@ Future<int> _run(List<String> arguments) async {
       stdout.writeln('rewritten ${_relative(file)}');
     }
     for (final import in imports) {
-      stdout.writeln(
-        "removed import '${import.uri}' ${_relative(import.path)}",
-      );
+      stdout.writeln(_removed(import));
     }
     for (final finding in findings) {
       stdout.writeln(_line(finding));
@@ -128,6 +127,11 @@ Future<int> _run(List<String> arguments) async {
   }
   return findings.isEmpty ? 0 : 1;
 }
+
+String _removed(UnusedImport import) => import.name == null
+    ? "removed import '${import.uri}' ${_relative(import.path)}"
+    : "removed '${import.name}' from import '${import.uri}' "
+          '${_relative(import.path)}';
 
 String _summary(int findings, int changed, {required bool fix}) {
   if (!fix) return findings == 0 ? 'no finding' : '$findings finding(s)';

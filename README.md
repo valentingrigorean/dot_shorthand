@@ -31,16 +31,16 @@ This package finds every place where the context type makes the shorthand legal 
 dart pub global activate dot_shorthand
 
 dot_shorthand lib test          # list every place that can use the shorthand
-dot_shorthand --fix lib test    # rewrite them, rescan, drop imports that became unused
+dot_shorthand --fix lib test    # rewrite them, rescan, drop imports and shown names that became unused
 ```
 
 Scan first. The scan is the dry run: it changes nothing and exits with code 1 when there is anything to rewrite, so it can also gate CI.
 
 | Flag | Effect |
 |---|---|
-| `--fix` | Rewrites every finding in place, rescans the changed files, and drops the imports the rewrite left unused or unnecessary |
+| `--fix` | Rewrites every finding in place, rescans the changed files, and drops the imports, or the names in their `show` lists, the rewrite left unused or unnecessary |
 | `--exclude <glob>` | Skips matching paths, relative to the package root; repeatable |
-| `--format json` | Prints one object: `findings` (each with `path`, `line`, `column`, `source`, `shorthand`, `contextType`), `changedFiles` (paths), `removedImports` (each with `path`, `uri`); paths are relative to the working directory |
+| `--format json` | Prints one object: `findings` (each with `path`, `line`, `column`, `source`, `shorthand`, `contextType`), `changedFiles` (paths), `removedImports` (each with `path`, `uri`, `name`; `name` is null when the whole import went); paths are relative to the working directory |
 | `--version` | Prints the version |
 
 Paths default to the current directory. Each path is analysed inside the nearest package above it (the closest `pubspec.yaml`), so context types resolve the same way they do in the editor.

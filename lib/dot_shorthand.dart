@@ -130,45 +130,96 @@ class DotShorthandScan {
 
   static const _removableImportCodes = {'unused_import', 'unnecessary_import'};
 
+  static const _unusedShownNameCode = 'unused_shown_name';
+
+  /// Whole directives the analyzer reports as unused or unnecessary, then the
+  /// shown names it reports as unused in the directives that stay.
   static List<UnusedImport> _unusedImports(ResolvedUnitResult unit) {
     final imports = <UnusedImport>[];
+    final unusedNames = <ImportDirective, Set<int>>{};
     for (final diagnostic in unit.diagnostics) {
-      if (!_removableImportCodes.contains(
-        diagnostic.diagnosticCode.lowerCaseName,
-      )) {
-        continue;
-      }
-      for (final directive in unit.unit.directives) {
-        if (directive is! ImportDirective) continue;
-        if (diagnostic.offset < directive.offset ||
-            diagnostic.offset >= directive.end) {
-          continue;
-        }
-        final uri = directive.uri.stringValue;
-        if (uri == null) break;
-        final content = unit.content;
-        var end = directive.end;
-        while (end < content.length &&
-            (content[end] == ' ' || content[end] == '\t')) {
-          end++;
-        }
-        if (content.startsWith('\r\n', end)) {
-          end += 2;
-        } else if (content.startsWith('\n', end)) {
-          end += 1;
-        }
-        imports.add(
-          UnusedImport(
-            path: unit.path,
-            uri: uri,
-            deleteStart: directive.offset,
-            deleteEnd: end,
-          ),
-        );
-        break;
+      final code = diagnostic.diagnosticCode.lowerCaseName;
+      final removable = _removableImportCodes.contains(code);
+      if (!removable && code != _unusedShownNameCode) continue;
+      final directive = _directiveAt(unit.unit, diagnostic.offset);
+      if (directive == null || directive.uri.stringValue == null) continue;
+      if (removable) {
+        imports.add(_wholeDirective(unit, directive));
+      } else {
+        unusedNames.putIfAbsent(directive, () => {}).add(diagnostic.offset);
       }
     }
+    for (final entry in unusedNames.entries) {
+      imports.addAll(_shownNames(unit, entry.key, entry.value));
+    }
     return imports;
+  }
+
+  static ImportDirective? _directiveAt(CompilationUnit unit, int offset) {
+    for (final directive in unit.directives) {
+      if (directive is! ImportDirective) continue;
+      if (offset >= directive.offset && offset < directive.end) {
+        return directive;
+      }
+    }
+    return null;
+  }
+
+  static UnusedImport _wholeDirective(
+    ResolvedUnitResult unit,
+    ImportDirective directive,
+  ) {
+    final content = unit.content;
+    var end = directive.end;
+    while (end < content.length &&
+        (content[end] == ' ' || content[end] == '\t')) {
+      end++;
+    }
+    if (content.startsWith('\r\n', end)) {
+      end += 2;
+    } else if (content.startsWith('\n', end)) {
+      end += 1;
+    }
+    return UnusedImport(
+      path: unit.path,
+      uri: directive.uri.stringValue!,
+      deleteStart: directive.offset,
+      deleteEnd: end,
+    );
+  }
+
+  /// One removal per unused name in the `show` lists of [directive].
+  ///
+  /// A name followed by a kept name goes together with its own comma; a name
+  /// with no kept name after it goes together with the comma before it. Either
+  /// way every range can be applied on its own, so a subset of them is safe.
+  static Iterable<UnusedImport> _shownNames(
+    ResolvedUnitResult unit,
+    ImportDirective directive,
+    Set<int> offsets,
+  ) sync* {
+    for (final combinator in directive.combinators) {
+      if (combinator is! ShowCombinator) continue;
+      final names = combinator.shownNames;
+      final unused = [
+        for (var i = 0; i < names.length; i++)
+          if (offsets.contains(names[i].offset)) i,
+      ];
+      if (unused.length == names.length) continue;
+      for (final i in unused) {
+        final keptAfter = names.indexWhere(
+          (n) => !offsets.contains(n.offset),
+          i,
+        );
+        yield UnusedImport(
+          path: unit.path,
+          uri: directive.uri.stringValue!,
+          name: names[i].name,
+          deleteStart: keptAfter == -1 ? names[i - 1].end : names[i].offset,
+          deleteEnd: keptAfter == -1 ? names[i].end : names[i + 1].offset,
+        );
+      }
+    }
   }
 
   bool _isCandidate(String file, String root) {
@@ -182,11 +233,13 @@ class DotShorthandScan {
   }
 }
 
-/// An import directive the analyzer reports as unused or unnecessary.
+/// An import directive the analyzer reports as unused or unnecessary, or
+/// one name in its `show` list when [name] is set.
 class UnusedImport {
   UnusedImport({
     required this.path,
     required this.uri,
+    this.name,
     required this.deleteStart,
     required this.deleteEnd,
   });
@@ -194,11 +247,18 @@ class UnusedImport {
   final String path;
   final String uri;
 
-  /// Start of the directive.
+  /// The shown name to drop; null when the whole directive goes.
+  final String? name;
+
+  /// Start of the directive, or of the name and its separator.
   final int deleteStart;
 
-  /// End of the directive's line, including the line break.
+  /// End of the directive's line, including the line break, or of the name
+  /// and its separator.
   final int deleteEnd;
+
+  /// What [newlyUnusedImports] compares between two scans.
+  String get key => name == null ? uri : '$uri show $name';
 }
 
 /// The imports in [after] that were not already unused in [before]: the ones a
@@ -211,14 +271,14 @@ List<UnusedImport> newlyUnusedImports(
   for (final entry in after.entries) {
     final earlier = before[entry.key];
     if (earlier == null) continue;
-    final known = {for (final i in earlier) i.uri};
-    result.addAll(entry.value.where((i) => !known.contains(i.uri)));
+    final known = {for (final i in earlier) i.key};
+    result.addAll(entry.value.where((i) => !known.contains(i.key)));
   }
   return result;
 }
 
-/// Deletes [imports] from disk and returns the paths of the changed files,
-/// sorted.
+/// Deletes [imports], whole directives and shown names alike, from disk and
+/// returns the paths of the changed files, sorted.
 List<String> removeImports(List<UnusedImport> imports) {
   final byFile = <String, List<UnusedImport>>{};
   for (final import in imports) {
