@@ -1,0 +1,3 @@
+plugins:
+  dot_shorthand:
+    path: ../

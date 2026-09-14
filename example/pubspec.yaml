@@ -1,0 +1,6 @@
+name: dot_shorthand_example
+description: Fixture package that enables the dot_shorthand analyzer plugin.
+publish_to: none
+
+environment:
+  sdk: ^3.13.2
