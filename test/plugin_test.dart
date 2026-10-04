@@ -21,6 +21,7 @@ import 'support.dart';
 const body = '''
 final Color miss = Color.red;
 final Color ignored = Color.green; // dot_shorthand: ignore
+final Color bare = Color.green; // ignore: prefer_dot_shorthand
 final Plain unnamed = Plain(1);
 final Insets second = Insets.zero;
 final Insets spread = Insets.all(

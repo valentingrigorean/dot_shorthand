@@ -11,17 +11,16 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/analysis/session.dart';
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/source/line_info.dart';
 import 'package:glob/glob.dart';
 import 'package:path/path.dart' as p;
 
+import 'src/ignore_comments.dart';
 import 'src/shorthand_visitor.dart';
 
+export 'src/ignore_comments.dart'
+    show IgnoreComments, ignoreMarker, isIgnored, ruleName;
 export 'src/shorthand_visitor.dart'
     show Finding, ShorthandVisitor, isGeneratedSource;
-
-/// Comment marker that keeps every finding on the line it ends.
-const ignoreMarker = 'dot_shorthand: ignore';
 
 /// File name suffixes that are never scanned.
 const generatedSuffixes = <String>[
@@ -79,11 +78,8 @@ class DotShorthandScan {
         await _recordLibraryImports(context.currentSession, unit, selected);
         final visitor = ShorthandVisitor(unit);
         unit.unit.accept(visitor);
-        findings.addAll(
-          visitor.findings.where(
-            (f) => !isIgnored(unit.content, unit.lineInfo, f),
-          ),
-        );
+        final ignores = IgnoreComments(unit.content, unit.lineInfo);
+        findings.addAll(visitor.findings.where((f) => !ignores.covers(f)));
       }
     }
     return findings;
@@ -295,58 +291,6 @@ List<String> removeImports(List<UnusedImport> imports) {
     file.writeAsStringSync(content);
   }
   return byFile.keys.toList()..sort();
-}
-
-/// Name of the analyzer rule, as used in `// ignore:` comments.
-const ruleName = 'prefer_dot_shorthand';
-
-final _ignoreForFile = RegExp(
-  r'//[ \t]*ignore_for_file[ \t]*:(.*)$',
-  multiLine: true,
-  caseSensitive: false,
-);
-
-final _ignoreLine = RegExp(
-  r'//[ \t]*ignore[ \t]*:(.*)$',
-  multiLine: true,
-  caseSensitive: false,
-);
-
-const _pluginName = 'dot_shorthand';
-
-bool _covers(String list) {
-  final names = [for (final name in list.split(',')) name.trim().toLowerCase()];
-  return names.contains(ruleName) ||
-      names.contains('$_pluginName/$ruleName') ||
-      names.contains('type=lint');
-}
-
-/// Whether an ignore comment in [content] covers [finding].
-///
-/// Honours [ignoreMarker] on the same line, `// ignore: prefer_dot_shorthand`
-/// or `// ignore: dot_shorthand/prefer_dot_shorthand` on the same or previous
-/// line, and `// ignore_for_file:` for either name or `type=lint`.
-bool isIgnored(String content, LineInfo lineInfo, Finding finding) {
-  for (final match in _ignoreForFile.allMatches(content)) {
-    if (_covers(match.group(1)!)) return true;
-  }
-  for (final line in [finding.line - 1, finding.line]) {
-    final text = _lineText(content, lineInfo, line);
-    if (text == null) continue;
-    if (text.contains(ignoreMarker) && line == finding.line) return true;
-    final match = _ignoreLine.firstMatch(text);
-    if (match != null && _covers(match.group(1)!)) return true;
-  }
-  return false;
-}
-
-String? _lineText(String content, LineInfo lineInfo, int line) {
-  if (line < 1 || line > lineInfo.lineCount) return null;
-  final start = lineInfo.getOffsetOfLine(line - 1);
-  final end = line < lineInfo.lineCount
-      ? lineInfo.getOffsetOfLine(line)
-      : content.length;
-  return content.substring(start, end);
 }
 
 /// Deletes the type name of every finding on disk and returns the paths of

@@ -1,3 +1,6 @@
+## 1.1.2
+
+- A file with many findings no longer takes seconds per analysis: ignore comments are read once per file, not once per finding. `IgnoreComments` exposes that per-file filter.
 ## 1.1.1
 
 - `--fix` drops a name from an import's `show` list when the rewrite left it unused, instead of leaving an `unused_shown_name` warning behind.

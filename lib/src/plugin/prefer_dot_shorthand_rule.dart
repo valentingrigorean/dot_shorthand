@@ -5,7 +5,8 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/error/error.dart';
 
-import '../../dot_shorthand.dart';
+import '../ignore_comments.dart';
+import '../shorthand_visitor.dart';
 
 class PreferDotShorthandRule extends AnalysisRule {
   static const LintCode code = LintCode(
@@ -52,8 +53,10 @@ class _Visitor extends SimpleAstVisitor<void> {
       path: unit.file.path,
     );
     node.accept(visitor);
+    if (visitor.findings.isEmpty) return;
+    final ignores = IgnoreComments(unit.content, node.lineInfo);
     for (final finding in visitor.findings) {
-      if (isIgnored(unit.content, node.lineInfo, finding)) continue;
+      if (ignores.covers(finding)) continue;
       rule.reportAtOffset(
         finding.offset,
         finding.end - finding.offset,

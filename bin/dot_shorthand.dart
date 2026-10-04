@@ -5,7 +5,7 @@ import 'package:args/args.dart';
 import 'package:dot_shorthand/dot_shorthand.dart';
 import 'package:path/path.dart' as p;
 
-const _version = '1.1.1';
+const _version = '1.1.2';
 
 const _synopsis =
     'dot_shorthand [--fix] [--exclude <glob>] [--format json] [<paths>...]';

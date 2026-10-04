@@ -68,6 +68,15 @@ plugins:
     path: ../dot_shorthand
 ```
 
+### Cost in a large workspace
+
+Any analyzer plugin, this one included, runs in its own isolate of the analysis server.
+That isolate resolves every Dart file of the context root a second time, even for `dart analyze <one file>`, and keeps the result in memory only ([dart-lang/sdk#64381](https://github.com/dart-lang/sdk/issues/64381), [#64202](https://github.com/dart-lang/sdk/issues/64202)).
+A plugin that registers no rules costs the same; the rule's own work is a small fraction of it.
+The server also compiles one plugin snapshot per context root path under `~/.dartServer/.plugin_manager/` and never deletes it ([#63244](https://github.com/dart-lang/sdk/issues/63244)), so every new worktree adds one.
+
+For a large workspace, or one checked out in many worktrees at once, leave the plugin out of `analysis_options.yaml` and run the [command line scan in CI](#ci) instead.
+
 ## Suppressing findings
 
 | Comment | Scope |
