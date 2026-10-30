@@ -1,3 +1,7 @@
 .scratch/
 .dart_tool/
 pubspec.lock
+
+# Personal agent files
+.agents/rules/personal-*
+.agents/skills/personal-*
