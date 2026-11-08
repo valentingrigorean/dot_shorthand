@@ -58,7 +58,7 @@ plugins:
 
 The rule `prefer_dot_shorthand` reports each place as a diagnostic, with a quick fix that drops the type name.
 `dart analyze` reports the same diagnostics.
-As of Dart 3.13, `dart fix --apply` does not run plugin fixes; use the command line `--fix` for bulk rewrites.
+`dart fix --apply` does not run plugin fixes; use the command line `--fix` for bulk rewrites.
 
 A local checkout works too:
 
