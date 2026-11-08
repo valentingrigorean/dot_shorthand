@@ -1,6 +1,6 @@
 # Example
 
-`lib/dot_shorthand_example.dart` holds eight places that can drop their type name, one already in shorthand form, one kept by an ignore comment, and two unnamed constructor calls the tool leaves alone.
+`lib/dot_shorthand_example.dart` holds places that can drop their type name, one already in shorthand form, one kept by an ignore comment, and unnamed constructor calls the tool leaves alone.
 
 List them:
 
